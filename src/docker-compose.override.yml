@@ -2,6 +2,17 @@ version: '3.4'
 
 services:
   
+  portainer:
+    container_name: portainer
+    restart: always
+    ports:
+      - "8080:8000"
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data  
+
+#--------------------------------------------------------------------------------------------
   catalogdb:
     container_name: catalog.db
     restart: always
@@ -56,6 +67,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - CacheSetting:ConnectionString=basket.db:6379
+      - "GrpcSetting:DiscountUrl=http://discount.grpc"
     depends_on:
       - basketdb
     ports:
@@ -66,9 +78,20 @@ services:
     container_name: discount.api
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - DatabaseSetting:ConnectionString=Server=discount.db;Port=5432;Database=DiscountDb;User Id=admin,;Password=admin;
+      - DatabaseSetting:ConnectionString=Server=discount.db;Port=5432;Database=DiscountDb;User Id=admin;Password=admin;
     ports:
       - "8125:80"
     depends_on:
       - discountdb
+
+
+  discount.grpc:
+    container_name: discount.grpc
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+       - "DatabaseSetting:ConnectionString=Server=discount.db;Port=5432;Database=DiscountDb;User Id=admin;Password=admin";
+    depends_on:
+      - discountdb
+    ports:
+      - "8126:80"
 

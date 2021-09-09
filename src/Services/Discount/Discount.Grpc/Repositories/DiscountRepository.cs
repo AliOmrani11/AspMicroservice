@@ -1,6 +1,7 @@
 ﻿using Dapper;
 using Discount.Grpc.Entities;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using System.Threading.Tasks;
 
@@ -9,17 +10,20 @@ namespace Discount.Grpc.Repositories
     public class DiscountRepository : IDiscountRepository
     {
         private readonly IConfiguration _configuration;
+        private readonly ILogger<DiscountRepository> _logger;
 
-        public DiscountRepository(IConfiguration configuration)
+        public DiscountRepository(IConfiguration configuration, ILogger<DiscountRepository> logger)
         {
             _configuration = configuration;
+            _logger = logger;
         }
 
         public async Task<Coupon> GetDiscount(string productName)
         {
+            _logger.LogInformation($"Connection string : {_configuration.GetSection("DatabaseSetting:ConnectionString").Value}");
             using var connection = new NpgsqlConnection
                 (_configuration.GetSection("DatabaseSetting:ConnectionString").Value);
-
+            
             var coupon = await connection.QueryFirstOrDefaultAsync<Coupon>
                 ("SELECT * FROM Coupon WHERE ProductName=@ProductName", new { ProductName = productName });
 

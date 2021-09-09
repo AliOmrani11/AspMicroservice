@@ -2,6 +2,9 @@ version: '3.4'
 
 services:
 
+  portainer:
+    image: portainer/portainer-ce
+
   catalogdb:
     image: mongo
   
@@ -35,8 +38,16 @@ services:
       context: .
       dockerfile: Services/Discount/Discount.Api/Dockerfile
 
+  discount.grpc:
+    image: ${DOCKER_REGISTRY-}discountgrpc
+    build:
+      context: .
+      dockerfile: Services/Discount/Discount.Grpc/Dockerfile
+
 volumes:
   mongo_data:
   postgres_data:
   pgadmin_data:
+  portainer_data:
+
 

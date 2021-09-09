@@ -29,6 +29,7 @@ namespace Discount.Grpc.Services
             var coupon = await _repository.GetDiscount(request.ProductName);
             if (coupon==null)
             {
+                _logger.LogError("No Discount");
                 throw new RpcException(new Status(StatusCode.NotFound, $"Discount with ProductName={request.ProductName}"));
             }
 
