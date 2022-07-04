@@ -2,15 +2,15 @@ version: '3.4'
 
 services:
   
-  portainer:
-    container_name: portainer
-    restart: always
-    ports:
-      - "8080:8000"
-      - "9000:9000"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - portainer_data:/data  
+  # portainer:
+  #   container_name: portainer
+  #   restart: always
+  #   ports:
+  #     - "8080:8000"
+  #     - "9000:9000"
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #     - portainer_data:/data  
 
 #--------------------------------------------------------------------------------------------
   catalogdb:
@@ -40,6 +40,23 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  orderdb:
+    container_name: order.db
+    environment:
+      SA_PASSWORD : "@llDb2020"
+      ACCEPT_EULA : "Y"
+    restart: always
+    ports:
+      - "1433:1433" 
+
+
+  rabbitmq:
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
   pgadmin:
     container_name: pgadmin
     restart: always
@@ -50,6 +67,7 @@ services:
       - PGADMIN_DEFAULT_PASSWORD=admin
     volumes:
       - pgadmin_data:/root/.pgadmin
+  
 #--------------------------------------------------------------------------------------------
 
   catalog.api:
@@ -59,6 +77,7 @@ services:
       - "DatabaseSetting:ConnectionString=mongodb://catalog.db:27017"
     depends_on:
       - catalogdb
+    restart: always
     ports:
       - "8123:80"
 
@@ -68,8 +87,11 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - CacheSetting:ConnectionString=basket.db:6379
       - "GrpcSetting:DiscountUrl=http://discount.grpc"
+      - "EventBusSetting:HostAddress=amqp://guest:guest@rabbitmq:5672"
     depends_on:
       - basketdb
+      - rabbitmq
+    restart: always
     ports:
       - "8124:80"
 
@@ -81,6 +103,7 @@ services:
       - DatabaseSetting:ConnectionString=Server=discount.db;Port=5432;Database=DiscountDb;User Id=admin;Password=admin;
     ports:
       - "8125:80"
+    restart: always
     depends_on:
       - discountdb
 
@@ -89,9 +112,69 @@ services:
     container_name: discount.grpc
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-       - "DatabaseSetting:ConnectionString=Server=discount.db;Port=5432;Database=DiscountDb;User Id=admin;Password=admin";
+      - "DatabaseSetting:ConnectionString=Server=discount.db;Port=5432;Database=DiscountDb;User Id=admin;Password=admin"
     depends_on:
       - discountdb
+    restart: always
     ports:
       - "8126:80"
 
+
+  ordering.api:
+    container_name: ordering.api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - "ConnectionStrings:OrderingConnectionString=Server=order.db;Database=OrderDb;User Id=sa;Password=@llDb2020"
+      - "EventBusSetting:HostAddress=amqp://guest:guest@rabbitmq:5672"
+    depends_on:
+      - orderdb
+      - rabbitmq
+    restart: always
+    ports:
+      - "8127:80"
+
+
+  ocelotapigateway:
+    container_name: ocelotgetway
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    restart: always
+    depends_on:
+      - ordering.api
+      - discount.api
+      - basket.api
+      - catalog.api
+    ports:
+      - "8128:80"
+
+
+  shopping.aggregator:
+    container_name: shopping.aggregator
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - "ApiSetting:CatalogUrl=http://catalog.api"
+      - "ApiSetting:BasketUrl=http://basket.api"
+      - "ApiSetting:OrderingUrl=http://ordering.api"
+    depends_on:
+      - ordering.api
+      - basket.api
+      - catalog.api
+    restart: always
+    ports:
+      - "8129:80"
+
+
+  aspnetrunbasics:
+    container_name: viewcontainer
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - "ApiSetting:GatewayAddress=http://ocelotgetway"
+    restart: always
+    depends_on:
+      - ocelotapigateway
+      - ordering.api
+      - discount.api
+      - basket.api
+      - catalog.api
+    ports:
+      - "8130:80"
